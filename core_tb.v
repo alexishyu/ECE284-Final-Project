@@ -60,7 +60,6 @@ wire [col*psum_bw-1:0] sfp_out;
 
 integer x_file, x_scan_file ; // file_handler
 integer w_file, w_scan_file ; // file_handler
-integer acc_file, acc_scan_file ; // file_handler
 integer out_file, out_scan_file ; // file_handler
 integer captured_data;
 integer t, i, j, k, kij;
@@ -339,7 +338,7 @@ initial begin
 	for (j=0; j<len_kij+1; j=j+1) begin
 
   	#0.5 clk = 1'b0;   
-    	if (j<len_kij) begin CEN_pmem = 0; WEN_pmem = 1; acc_scan_file = $fscanf(acc_file,"%11b", A_pmem); end
+    	if (j<len_kij) begin CEN_pmem = 0; WEN_pmem = 1; A_pmem = j; end
                    	else  begin CEN_pmem = 1; WEN_pmem = 1; end
 
     	if (j>0)  acc = 1;  
@@ -356,9 +355,6 @@ initial begin
       $display("########### Project Completed !! ############");
 
   end
-
-  $fclose(acc_file);
-  //////////////////////////////////
 
   for (t=0; t<10; t=t+1) begin  
 	#0.5 clk = 1'b0;  
