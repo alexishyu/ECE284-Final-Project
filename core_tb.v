@@ -108,7 +108,7 @@ initial begin
   $dumpfile("core_tb.vcd");
   $dumpvars(0,core_tb);
 
-  x_file = $fopen("activation_tile0.txt", "r");
+  x_file = $fopen("activation.txt", "r");
   // Following three lines are to remove the first three comment lines of the file
   x_scan_file = $fscanf(x_file,"%s", captured_data);
   x_scan_file = $fscanf(x_file,"%s", captured_data);
@@ -280,11 +280,6 @@ initial begin
     	if (ofifo_valid) begin
         	ofifo_rd = 1;
         	#1;
-        	$display("Reading output[%0d]: valid=%b, data=%h",
-                 	i, ofifo_valid, sfp_out);
-    	end
-    	else begin
-        	i = i - 1;
     	end
     	#0.5 clk = 1'b1;
     	#1;
