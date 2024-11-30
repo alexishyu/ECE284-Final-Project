@@ -1,4 +1,3 @@
-
 `timescale 1ns / 1ps
 
 module mac_array_tb;
@@ -35,7 +34,7 @@ initial begin
     forever #5 clk = ~clk; // 10ns clock period
 end
 
-// Test sequence without loops
+// Test sequence
 initial begin
     // Initialize inputs
     reset = 1;
@@ -47,36 +46,43 @@ initial begin
     #10;
     reset = 0;
 
-    // Manually load weights into each row
-    #10; inst_w = 2'b01; in_w = {row{4'b1010}}; in_n = {col{16'h0000}}; // Load for Row 1
-    #10; inst_w = 2'b01; in_w = {row{4'b1010}}; in_n = {col{16'h0000}}; // Load for Row 2
-    #10; inst_w = 2'b01; in_w = {row{4'b1010}}; in_n = {col{16'h0000}}; // Load for Row 3
-    #10; inst_w = 2'b01; in_w = {row{4'b1010}}; in_n = {col{16'h0000}}; // Load for Row 4
-    #10; inst_w = 2'b01; in_w = {row{4'b1010}}; in_n = {col{16'h0000}}; // Load for Row 5
-    #10; inst_w = 2'b01; in_w = {row{4'b1010}}; in_n = {col{16'h0000}}; // Load for Row 6
-    #10; inst_w = 2'b01; in_w = {row{4'b1010}}; in_n = {col{16'h0000}}; // Load for Row 7
-    #10; inst_w = 2'b01; in_w = {row{4'b1010}}; in_n = {col{16'h0000}}; // Load for Row 8
+    // Load weights into the array row by row
+    inst_w = 2'b01; // Kernel loading mode
+    in_n = {col{16'h0000}}; // Clear partial sums
+    #10; in_w = {row{4'b0001}}; #80; // Load weights for Row 1
+    #10; in_w = {row{4'b0010}}; #80; // Load weights for Row 2
+    #10; in_w = {row{4'b0100}}; #80; // Load weights for Row 3
+    #10; in_w = {row{4'b1000}}; #80; // Load weights for Row 4
+    #10; in_w = {row{4'b1111}}; #80; // Load weights for Row 5
+    #10; in_w = {row{4'b1010}}; #80; // Load weights for Row 6
+    #10; in_w = {row{4'b1100}}; #80; // Load weights for Row 7
+    #10; in_w = {row{4'b0011}}; #80; // Load weights for Row 8
 
-    #10; inst_w = 2'b00; // Disable instructions
+    // Switch to idle mode
+    inst_w = 2'b00;
+    #20;
 
-    // Manually execute MAC operations across all rows
-    #10; inst_w = 2'b10; in_w = {row{4'b0101}}; in_n = {col{16'h000A}}; // Execute for Row 1
-    #10; inst_w = 2'b10; in_w = {row{4'b0101}}; in_n = {col{16'h000A}}; // Execute for Row 2
-    #10; inst_w = 2'b10; in_w = {row{4'b0101}}; in_n = {col{16'h000A}}; // Execute for Row 3
-    #10; inst_w = 2'b10; in_w = {row{4'b0101}}; in_n = {col{16'h000A}}; // Execute for Row 4
-    #10; inst_w = 2'b10; in_w = {row{4'b0101}}; in_n = {col{16'h000A}}; // Execute for Row 5
-    #10; inst_w = 2'b10; in_w = {row{4'b0101}}; in_n = {col{16'h000A}}; // Execute for Row 6
-    #10; inst_w = 2'b10; in_w = {row{4'b0101}}; in_n = {col{16'h000A}}; // Execute for Row 7
-    #10; inst_w = 2'b10; in_w = {row{4'b0101}}; in_n = {col{16'h000A}}; // Execute for Row 8
+    // Perform MAC operations across all rows
+    inst_w = 2'b10; // Execute mode
+    in_n = {col{16'h0010}}; // Initial partial sums
+    #10; in_w = {row{4'b0001}}; #80; // Execute for Row 1
+    #10; in_w = {row{4'b0010}}; #80; // Execute for Row 2
+    #10; in_w = {row{4'b0100}}; #80; // Execute for Row 3
+    #10; in_w = {row{4'b1000}}; #80; // Execute for Row 4
+    #10; in_w = {row{4'b1111}}; #80; // Execute for Row 5
+    #10; in_w = {row{4'b1010}}; #80; // Execute for Row 6
+    #10; in_w = {row{4'b1100}}; #80; // Execute for Row 7
+    #10; in_w = {row{4'b0011}}; #80; // Execute for Row 8
 
-    #10; inst_w = 2'b00; // Disable instructions
+    // Switch to idle mode
+    inst_w = 2'b00;
+    #20;
 
     // Observe outputs
-    #20;
     $display("Output South (out_s): %h", out_s);
     $display("Valid signals: %b", valid);
 
-    // Check the `valid` signal
+    // Check if `valid` signal is set correctly
     if (valid !== {col{1'b1}}) begin
         $display("TEST FAILED: Valid signal is incorrect.");
     end else begin
