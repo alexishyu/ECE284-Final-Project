@@ -32,27 +32,7 @@ module corelet #(
 	wire [(row*bw)-1:0] l0_to_array;
 	wire [(psum_bw*col)-1:0] array_to_ofifo;
 	wire [col-1:0] ofifo_wr;
-	wire [31:0] sfp_in;
-	wire sfp_in_valid;
-	wire sfp_out_valid;
-
-	// Width adjustment for SFP input
-	reg [2:0] sfp_input_sel;
-    
-	always @(posedge clk) begin
-    	if (reset)
-        	sfp_input_sel <= 3'd0;
-    	else if (ofifo_valid) begin
-        	if (sfp_input_sel == col-1)
-            	sfp_input_sel <= 3'd0;
-        	else
-            	sfp_input_sel <= sfp_input_sel + 1;
-    	end
-	end
-
-	// Select 32-bit chunk from OFIFO output based on selector
-	assign sfp_in = ofifo_out[sfp_input_sel*16 +: 16];
-	assign sfp_in_valid = ofifo_valid;
+	wire [(col*psum_bw)-1:0] sfp_out_temp;  // One SFP per column
 
 	// Instantiate L0 FIFO
 	l0 #(.row(row), .bw(bw)) l0_inst (
@@ -86,32 +66,6 @@ module corelet #(
 	wire [(col*psum_bw)-1:0] ofifo_data;
 	assign ofifo_data = array_to_ofifo;
 
-	// Width adjustment for SFP output
-	wire [31:0] sfp_out_temp;
-	reg [(col*psum_bw)-1:0] sfp_out_reg;
-    
-	always @(posedge clk) begin
-    	if (reset)
-        	sfp_out_reg <= 0;
-    	else if (sfp_out_valid)
-        	sfp_out_reg[(sfp_input_sel*psum_bw) +: psum_bw] <= sfp_out_temp[15:0];
-	end
-    
-	assign sfp_out = sfp_out_reg;
-
-	// Instantiate SFP
-	sfp sfp_inst (
-    	.clk(clk),
-    	.reset(reset),
-    	.en(sfp_en),
-    	.acc_clear(sfp_acc_clear),
-    	.relu_en(sfp_relu_en),
-    	.data_in(sfp_in),
-    	.data_valid(sfp_in_valid),
-    	.data_out(sfp_out_temp),
-    	.out_valid(sfp_out_valid)
-	);
-
 	// Instantiate output FIFO
 	ofifo #(.col(col), .bw(psum_bw)) ofifo_inst (
     	.clk(clk),
@@ -125,4 +79,40 @@ module corelet #(
     	.o_valid(ofifo_valid)
 	);
 
+	// Instantiate one SFP per column
+	genvar i;
+	generate
+    	for (i = 0; i < col; i = i + 1) begin : sfp_inst
+        	sfp #(
+            	.psum_bw(psum_bw)
+        	) sfp_inst (
+            	.clk(clk),
+            	.reset(reset),
+            	.en(sfp_en),
+            	.acc_clear(sfp_acc_clear),
+            	.relu_en(sfp_relu_en),
+            	.data_in(ofifo_out[(i+1)*psum_bw-1:i*psum_bw]),
+            	.data_valid(ofifo_valid),
+            	.data_out(sfp_out_temp[(i+1)*psum_bw-1:i*psum_bw]),
+            	.out_valid()  // Connect if needed
+        	);
+    	end
+	endgenerate
+
+	// Direct assignment of SFP outputs
+	assign sfp_out = sfp_out_temp;
+
+	// Debug signals
+	always @(posedge clk) begin
+    	if (mac_array_en) begin
+        	$display("MAC Array: valid=%b", ofifo_wr);
+        	$display("MAC Array out: %h", array_to_ofifo);
+        	$display("OFIFO out: %h", ofifo_out);
+        	$display("SFP out: %h", sfp_out);
+    	end
+	end
+
 endmodule
+
+
+
