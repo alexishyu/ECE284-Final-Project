@@ -1,58 +1,59 @@
-module sfp (
-	input  wire             	clk,
-	input  wire             	reset,
-	input  wire             	en,     	 
-	input  wire             	acc_clear,   
-	input  wire             	relu_en,	 
-	input  wire signed [31:0]   data_in,    
-	input  wire             	data_valid,  
-	output reg  signed [31:0]   data_out,   
-	output reg              	out_valid    
+// sfp.v
+// Special Function Processor for accumulation and ReLU
+// Adjusted to match the interface in corelet.v
+
+`timescale 1ns/1ps
+
+module sfp #(
+    parameter psum_bw = 16,
+    parameter col = 8
+)(
+    input clk,
+    input reset,
+    input en,                  // SFP enable signal
+    input acc_clear,           // Clear accumulator signal
+    input relu_en,             // ReLU enable signal
+    input [psum_bw-1:0] data_in,   // Partial sum input (16 bits)
+    input data_valid,          // Data valid signal
+    output reg [psum_bw-1:0] data_out, // Output data after accumulation and ReLU
+    output reg out_valid       // Output valid signal
 );
 
-	// Internal registers
-	reg signed [31:0] acc_reg;
-	reg           	valid_pipe;
+    // Internal accumulator register
+    reg signed [psum_bw-1:0] accumulator;
 
-	// ReLU function
-	function [31:0] relu;
-    	input [31:0] value;
-    	begin
-        	relu = (value[31]) ? 32'd0 : value;
-    	end
-	endfunction
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            accumulator <= 0;
+            data_out <= 0;
+            out_valid <= 0;
+        end else if (en) begin
+            if (acc_clear) begin
+                accumulator <= 0;
+            end else if (data_valid) begin
+                accumulator <= accumulator + data_in;
+            end
 
-	// Accumulation logic with proper reset
-	always @(posedge clk) begin
-    	if (reset) begin
-        	acc_reg <= 32'd0;
-        	valid_pipe <= 1'b0;
-        	data_out <= 32'd0;
-        	out_valid <= 1'b0;
-    	end
-    	else if (en) begin
-        	if (acc_clear) begin
-            	acc_reg <= data_valid ? data_in : 32'd0;
-            	valid_pipe <= data_valid;
-        	end
-        	else if (data_valid) begin
-            	acc_reg <= acc_reg + data_in;
-            	valid_pipe <= 1'b1;
-        	end
-       	 
-        	// Output stage
-        	if (valid_pipe) begin
-            	data_out <= relu_en ? relu(acc_reg) : acc_reg;
-            	out_valid <= 1'b1;
-        	end
-        	else begin
-            	out_valid <= 1'b0;
-        	end
-    	end
-    	else begin
-        	valid_pipe <= 1'b0;
-        	out_valid <= 1'b0;
-    	end
-	end
+            // Apply ReLU if enabled
+            if (relu_en) begin
+                if (accumulator < 0)
+                    data_out <= 0;
+                else
+                    data_out <= accumulator;
+            end else begin
+                data_out <= accumulator;
+            end
+
+            out_valid <= data_valid;
+        end else begin
+            // Hold outputs if not enabled
+            data_out <= data_out;
+            out_valid <= 0;
+        end
+    end
 
 endmodule
+
+
+
+
