@@ -17,7 +17,7 @@ module corelet #(
     input  wire [(col*bw)-1:0] act_in,
     // OFIFO interface
     input  wire ofifo_rd,
-    output wire [(col*bw)-1:0] ofifo_out,
+    output wire [(psum_bw*col)-1:0] ofifo_out,
     output wire ofifo_full,
     output wire ofifo_ready,
     output wire ofifo_valid,
@@ -29,12 +29,10 @@ module corelet #(
 
     // Internal signals
     wire [(row*bw)-1:0] l0_to_array;
-    wire [(psum_bw*col)-1:0] array_to_ofifo;
+    wire [(psum_bw*col)-1:0] array_to_sfp;
+    wire [(psum_bw*col)-1:0] sfp_to_ofifo;
+    wire [col-1:0] sfp_valid;
     wire [col-1:0] ofifo_wr;
-    wire [31:0] sfp_in;
-    wire [31:0] sfp_out;
-    wire sfp_in_valid;
-    wire sfp_out_valid;
 
     // Instantiate L0 FIFO
     l0 #(.row(row), .bw(bw)) l0_inst (
@@ -60,38 +58,39 @@ module corelet #(
         .in_w(l0_to_array),
         .in_n({(psum_bw*col){1'b0}}),
         .inst_w({mac_array_en, 1'b1}),
-        .out_s(array_to_ofifo),
-        .valid(ofifo_wr)
+        .out_s(array_to_sfp),   // Output to SFU
+        .valid(sfp_valid)       // Valid signal for SFU
     );
 
-    // Width adjustment for OFIFO input
-    wire [(col*bw)-1:0] ofifo_data;
-    assign ofifo_data = array_to_ofifo[(col*bw)-1:0];
+    // Instantiate SFUs for each column
+    generate
+        genvar i;
+        for (i = 0; i < col; i = i + 1) begin : sfp_gen
+            sfp sfp_inst (
+                .clk(clk),
+                .reset(reset),
+                .en(sfp_en),
+                .acc_clear(sfp_acc_clear),
+                .relu_en(sfp_relu_en),
+                .data_in(array_to_sfp[psum_bw*(i+1)-1:psum_bw*i]),  // Column-specific psum
+                .data_valid(sfp_valid[i]),                         // Column-specific valid signal
+                .data_out(sfp_to_ofifo[psum_bw*(i+1)-1:psum_bw*i]), // Output to OFIFO
+                .out_valid(ofifo_wr[i])                            // Write enable for OFIFO
+            );
+        end
+    endgenerate
 
-    // Instantiate SFP
-    sfp sfp_inst (
+    // Instantiate OFIFO
+    ofifo #(.col(col), .bw(psum_bw)) ofifo_inst (
         .clk(clk),
-        .reset(reset),
-        .en(sfp_en),
-        .acc_clear(sfp_acc_clear),
-        .relu_en(sfp_relu_en),
-        .data_in(sfp_in),
-        .data_valid(sfp_in_valid),
-        .data_out(sfp_out),
-        .out_valid(sfp_out_valid)
-    );
-
-    // Instantiate output FIFO
-    ofifo #(.col(col), .bw(bw)) ofifo_inst (
-        .clk(clk),
-        .in(ofifo_data),
-        .out(ofifo_out),
+        .in(sfp_to_ofifo),      // Input from SFU
+        .out(ofifo_out),        // Output to psum memory
         .rd(ofifo_rd),
-        .wr(ofifo_wr),
+        .wr(ofifo_wr),          // Write enable from SFU
         .o_full(ofifo_full),
         .reset(reset),
         .o_ready(ofifo_ready),
         .o_valid(ofifo_valid)
     );
 
-endmodule 
+endmodule
