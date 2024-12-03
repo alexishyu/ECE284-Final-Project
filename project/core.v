@@ -27,86 +27,55 @@ module core #(
     wire execute = inst[1];
     wire load = inst[0];
 
-    // Generate IFIFO write enable during execution
-    wire ififo_wr = execute;  // Write to IFIFO during execution phase
-
     // Internal signals
     wire [(row*bw)-1:0] l0_to_array;
     wire [(col*16)-1:0] array_to_ofifo;
+    wire [col*16-1:0] ofifo_out;
+    wire [col*16-1:0] sfp_to_psum;
     wire [127:0] psum_sram_out;
-
-
-    // Logic to select data for act_in and l0_in
+    wire [col-1:0] ofifo_wr;
+    wire ofifo_full;
+    wire ofifo_ready;
     wire [(col*bw)-1:0] act_in;
     wire [(row*bw)-1:0] l0_in;
 
-    reg [31:0] xmem_out_d1;
-	always @(posedge clk) begin
-		xmem_out_d1 <= xmem_out;
-	end
+    // Generate IFIFO write enable during execution
+    wire ififo_wr = execute;
 
-	// Debug signals
-	reg [(col*bw)-1:0] act_in_debug;
-	reg [(row*bw)-1:0] l0_in_debug;
+    // Synchronize psum SRAM control signals
+    reg CEN_pmem_d, WEN_pmem_d;
+    reg [10:0] A_pmem_d;
 
-	always @(posedge clk) begin
-		act_in_debug <= act_in;
-		l0_in_debug <= l0_in;
-		if (execute)
-			$display("act_in=%h, xmem_out_d1=%h", act_in, xmem_out_d1);
-		if (load)
-			$display("l0_in=%h, xmem_out=%h", l0_in, xmem_out);
-	end
+    always @(posedge clk) begin
+        CEN_pmem_d <= CEN_pmem;
+        WEN_pmem_d <= WEN_pmem;
+        A_pmem_d <= A_pmem;
+    end
 
-	// Original assignments
-	assign l0_in = (l0_wr || execute) ? xmem_out[(row*bw)-1:0] : {((row*bw)){1'b0}};
-	
-	// Instantiate xmem SRAM (for both activation and weight data)
-	sram_32b_w2048 xmem (
-		.CLK(clk),
-		.D(D_xmem),
-		.Q(xmem_out),
-		.CEN(CEN_xmem),
-		.WEN(WEN_xmem),
-		.A(A_xmem)
-	);
-	
-	sram_128b_w2048 psum (
-		.CLK(clk),
-		.D(ofifo_out),
-		.Q(psum_sram_out),
-		.CEN(CEN_pmem),
-		.WEN(WEN_pmem),
-		.A(A_xmem)
-	);
+    // Original assignments
+    assign l0_in = (l0_wr || execute) ? xmem_out[(row*bw)-1:0] : {((row*bw)){1'b0}};
 
-
-
-    // Add IFIFO signals
-    wire [(col*bw)-1:0] ififo_out;
-    wire ififo_full, ififo_ready;
-    wire [col-1:0] ififo_wr_vec;  // Individual write enables for each column
-
-    // Generate write enable vector for IFIFO
-    assign ififo_wr_vec = {col{ififo_wr}};  // Broadcast ififo_wr to all columns
-
-    // Instantiate IFIFO
-    ofifo #(
-        .col(col),
-        .bw(bw)
-    ) ififo_inst (
-        .clk(clk),
-        .reset(reset),
-        .in(act_in),           // Input from memory
-        .out(ififo_out),       // Output to systolic array
-        .wr(ififo_wr_vec),     // Write enable vector
-        .rd(ififo_rd),         // Read enable
-        .o_full(ififo_full),
-        .o_ready(ififo_ready),
-        .o_valid()             // Leave unconnected if not needed
+    // Instantiate xmem SRAM
+    sram_32b_w2048 xmem (
+        .CLK(clk),
+        .D(D_xmem),
+        .Q(xmem_out),
+        .CEN(CEN_xmem),
+        .WEN(WEN_xmem),
+        .A(A_xmem)
     );
 
-    // Modify corelet instantiation to use IFIFO output
+    // Instantiate psum SRAM with SFP output
+    sram_128b_w2048 psum (
+        .CLK(clk),
+        .D(sfp_to_psum),    // Changed to use SFP output
+        .Q(psum_sram_out),
+        .CEN(CEN_pmem_d),
+        .WEN(WEN_pmem_d),
+        .A(A_pmem_d)
+    );
+
+    // Corelet instantiation
     corelet #(
         .row(row),
         .col(col),
@@ -121,24 +90,31 @@ module core #(
         .l0_wr(l0_wr),
         .l0_full(),
         .l0_ready(),
-        .act_in(ififo_out),    // Changed from act_in to ififo_out
+        .act_in(ififo_out),
         .ofifo_rd(ofifo_rd),
-        .ofifo_out(array_to_ofifo),
-        .ofifo_full(),
-        .ofifo_ready(),
+        .ofifo_out(ofifo_out),
+        .ofifo_full(ofifo_full),
+        .ofifo_ready(ofifo_ready),
         .ofifo_valid(ofifo_valid),
         .sfp_en(execute),
         .sfp_acc_clear(~execute),
         .sfp_relu_en(1'b1),
-        .sfp_out(sfp_out),
+        .sfp_out(sfp_to_psum),  // Connect to new wire
         .load(load),
         .execute(execute)
     );
 
+    // Keep sfp_out as separate output for testbench
+    assign sfp_out = sfp_to_psum;
+
+    // Debug signals
+    always @(posedge clk) begin
+        if (execute) begin
+            $display("OFIFO out: %h", ofifo_out);
+            $display("SFP out: %h", sfp_to_psum);
+        end
+        if (!CEN_pmem_d && !WEN_pmem_d)
+            $display("PSUM write: addr=%h data=%h", A_pmem_d, sfp_to_psum);
+    end
+
 endmodule
-
-
-
-
-
-

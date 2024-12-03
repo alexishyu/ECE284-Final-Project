@@ -311,30 +311,34 @@ initial begin
 	/////// Kernel loading to PEs ///////
 	#0.5 clk = 1'b0;  
 	load = 1; 
+	#0.5 clk = 1'b1;
+
+	// Add one stabilization cycle
+	#0.5 clk = 1'b0;
+	#0.5 clk = 1'b1;
+
+	// Now enable l0_rd
+	#0.5 clk = 1'b0;
 	l0_rd = 1;
 	execute = 0;  // Ensure execute is off during loading
 	#0.5 clk = 1'b1;
 
 	// Wait for 8 cycles to ensure all weights are loaded to PEs
 	repeat(8) begin  // One cycle per weight
-	    #0.5 clk = 1'b0;
-	    #0.5 clk = 1'b1;
+		#0.5 clk = 1'b0;
+		#0.5 clk = 1'b1;
 	end
 
-	// Add stabilization cycles after weight loading
+	// Add one extra cycle with l0_rd still high
+	#0.5 clk = 1'b0;
+	#0.5 clk = 1'b1;
+
+	// Now disable signals
 	#0.5 clk = 1'b0;  
 	load = 0;  // Disable load after weights are in PEs
 	l0_rd = 0;  // Disable L0 read
 	#0.5 clk = 1'b1;
-
-	// Add more stabilization cycles
-	repeat(4) begin
-	    #0.5 clk = 1'b0;
-	    #0.5 clk = 1'b1;
-	end
-
 	/////////////////////////////////////
-
 
 
 	////// provide some intermission to clear up the kernel loading ///
@@ -373,7 +377,7 @@ initial begin
 	#0.5 clk = 1'b0;  
 	execute = 1;
 	l0_rd = 1;     // Read from L0 during execution
-	l0_wr = 1;     // Write activations to L0
+	l0_wr = 0;     // Start with write disabled
 	CEN_xmem = 0;  // Enable memory reads
 	WEN_xmem = 1;  // Read mode
 	A_xmem = 0;    // Start from first activation
@@ -381,22 +385,23 @@ initial begin
 	#0.5 clk = 1'b1;
 
 	for (i=0; i<len_nij+1; i=i+1) begin
-		#0.5 clk = 1'b0;
-		
-		if (i==len_nij) begin 
-			execute = 0; 
-			ififo_rd = 0;
-			CEN_xmem = 1;  // Disable memory
-			$display("Finished execution");
-		end else begin
-			A_xmem = i;  // Update address for next activation read
-		end
-		
-		$display("Execution cycle %0d: A_xmem=%h, xmem_out=%h", i, A_xmem, core_instance.xmem_out);
-		
-		#0.5 clk = 1'b1;
+	    #0.5 clk = 1'b0;
+    
+    	if (i==len_nij) begin 
+        	execute = 0; 
+        	l0_rd = 0;    // Disable read at end
+        	l0_wr = 0;    // Disable write at end
+        	ififo_rd = 0;
+        	CEN_xmem = 1; // Disable memory
+        	$display("Finished execution");
+    	end else begin
+        	// Toggle l0_wr based on when we need to write new activations
+        	l0_wr = (i < len_nij-1);  // Write except for last cycle
+        	A_xmem = i;   // Update address for next activation read
+    	end
+    
+    	#0.5 clk = 1'b1;
 	end
-	/////////////////////////////////////
 
 
 

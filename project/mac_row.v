@@ -1,5 +1,3 @@
-// Created by prof. Mingu Kang @VVIP Lab in UCSD ECE department
-// Please do not spread this code without permission 
 module mac_row (clk, out_s, in_w, in_n, valid, inst_w, reset);
 
   parameter bw = 4;
@@ -8,36 +6,43 @@ module mac_row (clk, out_s, in_w, in_n, valid, inst_w, reset);
 
   input  clk; 
   input  reset;
-  input  [bw-1:0] in_w; // inst[1]:execute, inst[0]: kernel loading
+  input  [bw-1:0] in_w;
   input  [1:0] inst_w;
   input  [psum_bw*col-1:0] in_n;
-  output [psum_bw*col-1:0] out_s;
-  output [col-1:0] valid;
+  output wire [psum_bw*col-1:0] out_s;
+  output wire [col-1:0] valid;
 
-  wire  [(col+1)*bw-1:0] temp;
-  wire  [(col+1)*2-1:0] temp_inst;
+  wire [(col+1)*bw-1:0] temp;
+  wire [(col+1)*2-1:0] temp_inst;
+  wire [psum_bw*col-1:0] mac_outs;
+  wire [col-1:0] valid_signals;
 
-  assign temp[bw-1:0]   = in_w;
+  // First tile gets direct input
+  assign temp[bw-1:0] = in_w;
   assign temp_inst[1:0] = inst_w;
 
+  // Generate MAC tiles
   genvar i;
   generate
-    for (i=1; i < col+1 ; i=i+1) begin : col_num
-        mac_tile #(.bw(bw), .psum_bw(psum_bw)) mac_tile_instance (
-            .clk    (clk),
-            .reset  (reset),
-            .in_w   (temp[bw*i-1:bw*(i-1)]),
-            .out_e  (temp[bw*(i+1)-1:bw*i]),
-            .inst_w (temp_inst[2*i-1 : 2*(i-1)]),
-            .inst_e (temp_inst[(2*(i+1))-1 : 2*i]),
-            .in_n   (in_n[psum_bw*i-1 : psum_bw*(i-1)]),
-            .out_s  (out_s[psum_bw*i-1 : psum_bw*(i-1)])
-        );
-    
-        assign valid[i-1] = temp_inst[2*(i+1)-1];
+    for (i=0; i < col; i=i+1) begin : col_num
+      mac_tile #(.bw(bw), .psum_bw(psum_bw)) mac_tile_instance (
+        .clk(clk),
+        .reset(reset),
+        .in_w(temp[bw*i+:bw]),
+        .out_e(temp[bw*(i+1)+:bw]),
+        .inst_w(temp_inst[2*i+:2]),
+        .inst_e(temp_inst[2*(i+1)+:2]),
+        .in_n(in_n[psum_bw*i+:psum_bw]),
+        .out_s(mac_outs[psum_bw*i+:psum_bw])
+      );
+
+      // Valid signal comes from instruction propagation
+      assign valid_signals[i] = temp_inst[2*(i+1)+1];
     end
   endgenerate
 
+  // Output assignments
+  assign out_s = mac_outs;
+  assign valid = valid_signals;
+
 endmodule
-
-
