@@ -25,15 +25,15 @@ module l0 (clk, in, out, rd, wr, o_full, reset, o_ready);
 
   for (i=0; i<row ; i=i+1) begin : row_num
       fifo_depth64 #(.bw(bw)) fifo_instance (
-	 .rd_clk(clk),
-	 .wr_clk(clk),
-	 .rd(rd_en[i]),
-	 .wr(wr),
-         .o_empty(empty[i]),
-         .o_full(full[i]),
-	 .in(in[bw*(i+1)-1:bw*i]),
-	 .out(out[bw*(i+1)-1:bw*i]),
-         .reset(reset));
+        .rd_clk(clk),
+        .wr_clk(clk),
+        .rd(rd_en[i]),
+        .wr(wr),
+        .o_empty(empty[i]),
+        .o_full(full[i]),
+        .in(in[bw*(i+1)-1:bw*i]),
+        .out(out[bw*(i+1)-1:bw*i]),
+        .reset(reset));
   end
 
   always @ (posedge clk) begin
@@ -42,7 +42,7 @@ module l0 (clk, in, out, rd, wr, o_full, reset, o_ready);
    end
    else begin
       /////////////// version1: read all row at a time ////////////////
-      rd_en <= {8{rd}};  // All rows read simultaneously when rd=1
+      rd_en <= {row{rd}};  // All rows read simultaneously when rd=1
       ///////////////////////////////////////////////////////
 
       //////////////// version2: read 1 row at a time /////////////////
