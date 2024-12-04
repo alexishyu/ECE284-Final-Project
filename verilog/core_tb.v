@@ -86,12 +86,12 @@ assign inst_q[0]   = load_q;
 
 
 core  #(.bw(bw), .col(col), .row(row)) core_instance (
-	.clk(clk), 
-	.inst(inst_q),
-	.ofifo_valid(ofifo_valid),
-        .d_xmem(D_xmem_q), 
-        .sfp_out(sfp_out), 
-	.reset(reset)); 
+	  .clk(clk), 
+	  .inst(inst_q),
+	  .ofifo_valid(ofifo_valid),
+	  .d_xmem(D_xmem_q), 
+	  .sfp_out(sfp_out), 
+	  .reset(reset)); 
 
 
 initial begin 
@@ -150,6 +150,7 @@ initial begin
   $fclose(x_file);
   /////////////////////////////////////////////////
 
+  /////////////////////////////////////////////////
   w_file_name = "weight.txt";
   w_file = $fopen(w_file_name, "r");
   // Following three lines are to remove the first three comment lines of the file
@@ -157,7 +158,7 @@ initial begin
   w_scan_file = $fscanf(w_file,"%s", captured_data);
   w_scan_file = $fscanf(w_file,"%s", captured_data);
 
-  for (kij=0; kij<9; kij=kij+1) begin  // kij loop
+  for (kij=0; kij<9; kij=kij+1) begin  
 
     #0.5 clk = 1'b0;   reset = 1;
     #0.5 clk = 1'b1; 
@@ -172,7 +173,7 @@ initial begin
 
     #0.5 clk = 1'b0;   
     #0.5 clk = 1'b1;   
-
+  /////////////////////////////////////////////////
 
 
 
@@ -182,11 +183,7 @@ initial begin
     A_xmem = 11'b10000000000;
 
     for (t=0; t<col; t=t+1) begin  
-      #0.5 clk = 1'b0;  
-      w_scan_file = $fscanf(w_file,"%32b", D_xmem); 
-      WEN_xmem = 0; 
-      CEN_xmem = 0; 
-      if (t>0) A_xmem = A_xmem + 1; 
+      #0.5 clk = 1'b0; w_scan_file = $fscanf(w_file,"%32b", D_xmem); WEN_xmem = 0; CEN_xmem = 0; if (t>0) A_xmem = A_xmem + 1; 
       #0.5 clk = 1'b1;  
     end
 
@@ -200,21 +197,19 @@ initial begin
     end
 
     /////// Kernel data writing to L0 ///////
-
-    WEN_xmem = 1; // Xmem read enable
-    CEN_xmem = 0; // Xmem chip enable
-    l0_wr = 1;    // L0 write enable
-    l0_rd = 0;    // L0 read disable
-    A_xmem = 11'b10000000000;   // address set to the start of kernel data
+    A_xmem = 11'b10000000000;   
+    l0_rd = 0;  
+    WEN_xmem = 1; 
+    CEN_xmem = 0; 
+    l0_wr = 1;    
+    
 
     for (i=0; i<col; i=i+1) begin
-			#0.5 clk = 1'b0;
-			if (t>0) A_xmem = A_xmem + 1; 
+			#0.5 clk = 1'b0;if (t>0) A_xmem = A_xmem + 1; 
 			#0.5 clk = 1'b1; 
 		end
 
-    #0.5 clk = 1'b0;
-    l0_wr = 0;    // L0 write disable
+    #0.5 clk = 1'b0;l0_wr = 0;    
     #0.5 clk = 1'b1;
 
     for (i=0; i<10 ; i=i+1) begin
@@ -232,11 +227,9 @@ initial begin
     #0.5 clk = 1'b1;
 
     for (i=0; i<col; i=i+1) begin
-			#0.5 clk = 1'b0;
-			load = 1;
+			#0.5 clk = 1'b0;  load = 1;
 			#0.5 clk = 1'b1; 
 		end
-
     /////////////////////////////////////
   
 
@@ -255,21 +248,19 @@ initial begin
 
 
     /////// Activation data writing to L0 ///////
-    
-    WEN_xmem = 1; // Xmem read enable
-    CEN_xmem = 0; // Xmem chip enable
-    l0_wr = 1;    // L0 write enable
-    l0_rd = 0;    // L0 read disable
-    A_xmem = 0;   // address set to the start of kernel data
+    A_xmem = 0;  
+    l0_rd = 0;  
+    WEN_xmem = 1; 
+    CEN_xmem = 0; 
+    l0_wr = 1;    
+   
 
     for (i=0; i<len_nij; i=i+1) begin
-			#0.5 clk = 1'b0;
-			if (t>0) A_xmem = A_xmem + 1; 
+			#0.5 clk = 1'b0;  if(t>0) A_xmem = A_xmem + 1; 
 			#0.5 clk = 1'b1; 
 		end
 
-    #0.5 clk = 1'b0;
-    l0_wr = 0;    // L0 write disable
+    #0.5 clk = 1'b0;  l0_wr = 0;    
     #0.5 clk = 1'b1;
     
     for (i=0; i<10 ; i=i+1) begin
@@ -283,12 +274,11 @@ initial begin
 
 
     /////// Execution ///////
-    l0_rd = 1;    // L0 read enable
+    l0_rd = 1;   
     #0.5 clk = 1'b1;
 
     for (i=0; i<len_nij; i=i+1) begin
-			#0.5 clk = 1'b0;
-			execute = 1;      // execute
+			#0.5 clk = 1'b0;  execute = 1;      
 			#0.5 clk = 1'b1; 
 		end
 
@@ -297,9 +287,7 @@ initial begin
         #0.5 clk = 1'b1;  
     end
 
-    #0.5 clk = 1'b0;  
-    execute = 0;      // execute ends
-    l0_rd = 0;        // L0 read disable
+    #0.5 clk = 1'b0;  l0_rd = 0; execute = 0;              
     #0.5 clk = 1'b1;  
     /////////////////////////////////////
 
@@ -310,31 +298,21 @@ initial begin
     // depth so we can fetch out after execution.
     
     #0.5 clk = 1'b0;
-    ofifo_rd = 1;     // OFIFO read enable
+    ofifo_rd = 1;    
     #0.5 clk = 1'b1;
 
     for (t=0; t<len_nij+1; t=t+1) begin  
-      #0.5 clk = 1'b0;
-			WEN_pmem = 0;
-			CEN_pmem = 0;
-			if (t>0) A_pmem = A_pmem + 1; 
+      #0.5 clk = 1'b0; CEN_pmem = 0; WEN_pmem = 0; if (t>0) A_pmem = A_pmem + 1; 
       #0.5 clk = 1'b1;  
     end
 
-    #0.5 clk = 1'b0;  
-    WEN_pmem = 1;  
-    CEN_pmem = 1; 
-    ofifo_rd = 0;
+    #0.5 clk = 1'b0; CEN_pmem = 1; WEN_pmem = 1; ofifo_rd = 0;
     #0.5 clk = 1'b1;
 
     for (i=0; i<10 ; i=i+1) begin
       #0.5 clk = 1'b0;
       #0.5 clk = 1'b1;  
     end
-
-    /////////////////////////////////////
-
-    $display("No. %d execution completed.", kij);
 
   end  // end of kij loop
 

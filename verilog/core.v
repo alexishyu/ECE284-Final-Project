@@ -12,7 +12,6 @@ module core #(
     output [psum_bw*col-1:0] sfp_out
 );
 
-    // Extract control signals from instruction
     wire relu_en = inst[34];
     wire acc = inst[33];
     wire CEN_pmem = inst[32];
@@ -28,7 +27,6 @@ module core #(
     wire execute = inst[1];
     wire load = inst[0];
 
-    // Internal signals
     wire [bw*row-1:0] data_in;
     wire [psum_bw*col-1:0] acc_in;
     wire [psum_bw*col-1:0] data_out;
@@ -36,7 +34,6 @@ module core #(
     wire [31:0] xmem_data_out;
     wire [127:0] pmem_data_out;
 
-    // Connect memory outputs
     assign data_in = xmem_data_out;
     assign acc_in = pmem_data_out;
     assign sfp_out = spf_out;
@@ -80,7 +77,7 @@ module core #(
         .ofifo_ready(),
         .ofifo_valid(ofifo_valid),
         .psum_out(data_out),
-        .data_sram_to_sfu(acc_in),
+        .sram_to_sfu(acc_in),
         .accumulate(acc),
         .relu(relu_en),
         .data_out(spf_out)

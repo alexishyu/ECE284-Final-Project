@@ -18,13 +18,12 @@ module corelet #(
 	output wire ofifo_ready,
 	output wire ofifo_valid,
 	output wire [psum_bw*col-1:0] psum_out,
-	input wire [psum_bw*col-1:0] data_sram_to_sfu,
+	input wire [psum_bw*col-1:0] sram_to_sfu,
 	input wire accumulate,
 	input wire relu,
 	output wire [psum_bw*col-1:0] data_out
 );
 
-	// Internal signals
 	wire [row*bw-1:0] data_out_l0;
 	wire [psum_bw*col-1:0] mac_out;
 	wire [col-1:0] mac_out_valid;
@@ -33,7 +32,6 @@ module corelet #(
 
 	assign in_n = {(psum_bw*col){1'b0}};
 
-	// L0 FIFO instance
 	l0 #(.row(row), .bw(bw)) l0_inst (
 		.clk(clk),
 		.reset(reset),
@@ -45,18 +43,6 @@ module corelet #(
 		.o_ready(l0_ready)
 	);
 
-	// MAC array instance
-	mac_array #(.bw(bw), .psum_bw(psum_bw), .col(col), .row(row)) mac_array_inst (
-		.clk(clk),
-		.reset(reset),
-		.in_w(data_out_l0),
-		.in_n(in_n),
-		.inst_w({execute, load}),
-		.out_s(mac_out),
-		.valid(mac_out_valid)
-	);
-
-	// OFIFO instance
 	ofifo #(.col(col), .bw(psum_bw)) ofifo_inst (
 		.clk(clk),
 		.reset(reset),
@@ -69,7 +55,18 @@ module corelet #(
 		.o_valid(ofifo_valid)
 	);
 
-	// Generate SFP instances for each column
+	mac_array #(.bw(bw), .psum_bw(psum_bw), .col(col), .row(row)) mac_array_inst (
+		.clk(clk),
+		.reset(reset),
+		.in_w(data_out_l0),
+		.in_n(in_n),
+		.inst_w({execute, load}),
+		.out_s(mac_out),
+		.valid(mac_out_valid)
+	);
+
+
+
 	genvar i;
 	generate
 		for (i = 0; i < col; i = i + 1) begin : sfp_inst
@@ -78,13 +75,12 @@ module corelet #(
 				.reset(reset),
 				.acc(accumulate),
 				.relu_en(relu),
-				.data_in(data_sram_to_sfu[psum_bw*(i+1)-1:psum_bw*i]),
+				.data_in(sram_to_sfu[psum_bw*(i+1)-1:psum_bw*i]),
 				.data_out(sfp_out_temp[psum_bw*(i+1)-1:psum_bw*i])
 			);
 		end
 	endgenerate
 
-	// Connect SFP output to data_out
 	assign data_out = sfp_out_temp;
 
 endmodule
