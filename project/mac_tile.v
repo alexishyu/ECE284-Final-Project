@@ -36,6 +36,7 @@ always @(posedge clk) begin
             inst_q[0] <= inst_w[0];
         if(load_ready_q=='b1 && inst_w[0]=='b1)
             load_ready_q <= 'b0;
+            b_q <= in_w;
     end
 end
 
@@ -43,12 +44,6 @@ end
 always @(posedge clk) begin
     if(inst_w[0]=='b1 || inst_w[1]=='b1)
         a_q <= in_w;
-end
-
-// Weight register control
-always @(posedge clk) begin
-    if(inst_w[0]=='b1 && load_ready_q=='b1)
-        b_q <= in_w;
 end
 
 // Partial sum register control
