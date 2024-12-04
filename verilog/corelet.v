@@ -9,8 +9,11 @@ module corelet #(
 	input wire execute,
 	input wire load,
 	input wire [bw*row-1:0] data_to_l0,
+	input wire [bw*col-1:0] data_to_ififo,
 	input wire l0_rd,
 	input wire l0_wr,
+	input wire ififo_rd,
+	input wire ififo_wr,
 	output wire l0_full,
 	output wire l0_ready,
 	input wire ofifo_rd,
@@ -29,6 +32,7 @@ module corelet #(
 	wire [col-1:0] mac_out_valid;
 	wire [psum_bw*col-1:0] in_n;
 	wire [psum_bw*col-1:0] sfp_out_temp;
+	wire [bw*col-1:0] ififo_to_mac;
 
 	assign in_n = {(psum_bw*col){1'b0}};
 
@@ -41,6 +45,18 @@ module corelet #(
 		.wr(l0_wr),
 		.o_full(l0_full),
 		.o_ready(l0_ready)
+	);
+
+	ififo #(.col(col), .bw(psum_bw)) ififo_inst (
+		.clk(clk),
+		.reset(reset),
+		.in(data_to_ififo),
+		.out(ififo_to_mac),
+		.rd(ififo_rd),
+		.wr(ififo_wr),
+		.i_full(ofifo_full),
+		.i_ready(ofifo_ready),
+		.i_valid(ofifo_valid)
 	);
 
 	ofifo #(.col(col), .bw(psum_bw)) ofifo_inst (
@@ -59,7 +75,7 @@ module corelet #(
 		.clk(clk),
 		.reset(reset),
 		.in_w(data_out_l0),
-		.in_n(in_n),
+		.in_n(ififo_to_mac),
 		.inst_w({execute, load}),
 		.out_s(mac_out),
 		.valid(mac_out_valid)

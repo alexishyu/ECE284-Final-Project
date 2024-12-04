@@ -21,6 +21,7 @@ module core #(
     wire WEN_xmem = inst[18];
     wire [10:0] A_xmem = inst[17:7];
     wire ofifo_rd = inst[6];
+    wire ififo_wr = inst[5];
     wire ififo_rd = inst[4];
     wire l0_rd = inst[3];
     wire l0_wr = inst[2];
@@ -68,8 +69,11 @@ module core #(
         .execute(execute),
         .load(load),
         .data_to_l0(data_in),
+        .data_to_ififo(data_in),
         .l0_rd(l0_rd),
         .l0_wr(l0_wr),
+        .ififo_rd(ififo_rd),
+        .ififo_wr(ififo_wr),
         .l0_full(),
         .l0_ready(),
         .ofifo_rd(ofifo_rd),

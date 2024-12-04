@@ -11,6 +11,7 @@ output [1:0] inst_e;       // latched version of inst_w
 input  [psum_bw-1:0] in_n; // in_n is input psum
 input  clk;
 input  reset;
+input  mode;               // 1: weight-stationary, 0: output-statioary
 
 reg [1:0] inst_q;          // connected to inst_e; latched from inst_w
 reg [bw-1:0] a_q;         // connected to out_e; latched from in_w
@@ -21,7 +22,7 @@ wire signed [psum_bw-1:0] mac_out;
 
 // Output assignments
 assign out_e = a_q;
-assign out_s = mac_out;
+assign out_s = (mode == 1)? mac_out : in_n;
 assign inst_e = inst_q;
 
 // Instruction and load_ready control
@@ -47,13 +48,22 @@ end
 
 // Weight register control
 always @(posedge clk) begin
-    if(inst_w[0]=='b1 && load_ready_q=='b1)
-        b_q <= in_w;
+    if(inst_w[0]=='b1 && load_ready_q=='b1) begin
+        if (mode == 1) begin 
+            b_q <= in_w;
+        end else if (mode == 0) begin
+            b_q <= in_n[bw-1:0];
+        end
+    end
 end
 
 // Partial sum register control
 always @(posedge clk) begin
-    c_q <= in_n;
+    if (mode == 1) begin
+        c_q <= in_n;
+    end else if (mode == 0) begin
+        c_q <= mac_out;
+    end
 end
 
 // MAC unit instantiation

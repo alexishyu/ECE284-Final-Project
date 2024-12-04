@@ -9,7 +9,8 @@ module mac_array (clk, reset, out_s, in_w, in_n, inst_w, valid);
   output wire [psum_bw*col-1:0] out_s;
   input  [row*bw-1:0] in_w;
   input  [1:0] inst_w;
-  input  [psum_bw*col-1:0] in_n;
+  input  [bw*col-1:0] in_n;
+  input mode;
   output wire [col-1:0] valid;
 
   reg [2*row-1:0] inst_w_temp;
@@ -34,7 +35,7 @@ module mac_array (clk, reset, out_s, in_w, in_n, inst_w, valid);
   end
 
   // Base case: first row gets zeros as input
-  assign temp[psum_bw*col-1:0] = in_n;
+  assign temp[psum_bw*col-1:0] = (mode == 1) ? {psum_bw*col{1'b0}} : in_n;
 
   // Generate MAC rows
   genvar i;
@@ -46,6 +47,7 @@ module mac_array (clk, reset, out_s, in_w, in_n, inst_w, valid);
         .in_w(in_w[bw*(i+1)-1:bw*i]),
         .inst_w(inst_w_temp[2*i+1:2*i]),
         .in_n(temp[psum_bw*col*(i+1)-1:psum_bw*col*i]),
+        .mode(mode),
         .out_s(temp[psum_bw*col*(i+2)-1:psum_bw*col*(i+1)]),
         .valid(valid_temp[col*(i+1)-1:col*i])
       );

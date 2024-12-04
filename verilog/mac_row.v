@@ -9,6 +9,7 @@ module mac_row (clk, out_s, in_w, in_n, valid, inst_w, reset);
   input  [bw-1:0] in_w;
   input  [1:0] inst_w;
   input  [psum_bw*col-1:0] in_n;
+  input  mode;
   output wire [psum_bw*col-1:0] out_s;
   output wire [col-1:0] valid;
 
@@ -28,6 +29,7 @@ module mac_row (clk, out_s, in_w, in_n, valid, inst_w, reset);
       mac_tile #(.bw(bw), .psum_bw(psum_bw)) mac_tile_instance (
         .clk(clk),
         .reset(reset),
+        .mode(mode),
         .in_w(temp[bw*i+:bw]),
         .out_e(temp[bw*(i+1)+:bw]),
         .inst_w(temp_inst[2*i+:2]),
