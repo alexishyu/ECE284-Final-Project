@@ -14,6 +14,7 @@ module corelet #(
 	input wire l0_wr,
 	input wire ififo_rd,
 	input wire ififo_wr,
+	input wire output_enable,
 	output wire l0_full,
 	output wire l0_ready,
 	input wire ofifo_rd,
@@ -24,6 +25,7 @@ module corelet #(
 	input wire [psum_bw*col-1:0] sram_to_sfu,
 	input wire accumulate,
 	input wire relu,
+	input wire mode,
 	output wire [psum_bw*col-1:0] data_out
 );
 
@@ -33,6 +35,9 @@ module corelet #(
 	wire [psum_bw*col-1:0] in_n;
 	wire [psum_bw*col-1:0] sfp_out_temp;
 	wire [bw*col-1:0] ififo_to_mac;
+	wire [psum_bw*col*row-1:0] tile_outputs;
+	wire [psum_bw*col-1:0] ofifo_input;
+	wire row_valid;
 
 	assign in_n = {(psum_bw*col){1'b0}};
 
@@ -78,7 +83,12 @@ module corelet #(
 		.in_n(ififo_to_mac),
 		.inst_w({execute, load}),
 		.out_s(mac_out),
-		.valid(mac_out_valid)
+		.valid(mac_out_valid),
+		.mode(mode),
+		.output_enable(output_enable),
+		.tile_outputs(tile_outputs),
+		.ofifo_input(ofifo_input),
+		.row_valid(row_valid)
 	);
 
 

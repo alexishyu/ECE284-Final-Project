@@ -13,6 +13,9 @@ input  clk;
 input  reset;
 input  mode;               // 1: weight-stationary, 0: output-statioary
 
+input output_enable;
+output [psum_bw-1:0] data_out;
+
 reg [1:0] inst_q;          // connected to inst_e; latched from inst_w
 reg [bw-1:0] a_q;         // connected to out_e; latched from in_w
 reg signed [bw-1:0] b_q;   // weight register
@@ -24,6 +27,7 @@ wire signed [psum_bw-1:0] mac_out;
 assign out_e = a_q;
 assign out_s = (mode == 1)? mac_out : in_n;
 assign inst_e = inst_q;
+assign data_out = c_q;
 
 // Instruction and load_ready control
 always @(posedge clk) begin
