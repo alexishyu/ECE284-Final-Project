@@ -4,6 +4,7 @@ module mac_array (clk, reset, out_s, in_w, in_n, inst_w, valid, mode, tile_array
   parameter psum_bw = 16;
   parameter col = 8;
   parameter row = 8;
+  parameter mac_ops = 27;
 
   input  clk, reset;
   output wire [psum_bw*col-1:0] out_s;
@@ -35,8 +36,18 @@ module mac_array (clk, reset, out_s, in_w, in_n, inst_w, valid, mode, tile_array
     end
   end
 
-  // Base case: first row gets zeros as input
-  assign temp[psum_bw*col-1:0] = mode ? {col{in_n[bw-1:0]}} : in_n;
+  // Base case: first row gets input
+  assign temp[psum_bw*col-1:0] = mode ? 
+      {
+          {{(psum_bw-bw){in_n[bw*7 + (bw-1)]}}, in_n[bw*7 +: bw]},  // Sign extend weight
+          {{(psum_bw-bw){in_n[bw*6 + (bw-1)]}}, in_n[bw*6 +: bw]},
+          {{(psum_bw-bw){in_n[bw*5 + (bw-1)]}}, in_n[bw*5 +: bw]},
+          {{(psum_bw-bw){in_n[bw*4 + (bw-1)]}}, in_n[bw*4 +: bw]},
+          {{(psum_bw-bw){in_n[bw*3 + (bw-1)]}}, in_n[bw*3 +: bw]},
+          {{(psum_bw-bw){in_n[bw*2 + (bw-1)]}}, in_n[bw*2 +: bw]},
+          {{(psum_bw-bw){in_n[bw*1 + (bw-1)]}}, in_n[bw*1 +: bw]},
+          {{(psum_bw-bw){in_n[bw*0 + (bw-1)]}}, in_n[bw*0 +: bw]}
+      } : in_n;
 
   // Generate MAC rows
   genvar i;

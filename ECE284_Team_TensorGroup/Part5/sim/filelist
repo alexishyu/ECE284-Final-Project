@@ -1,4 +1,4 @@
-../verilog/core_tb.v
+../verilog/core_tb_OS.v
 ../verilog/core.v
 ../verilog/corelet.v
 ../verilog/fifo_depth64.v

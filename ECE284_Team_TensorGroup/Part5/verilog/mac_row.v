@@ -3,6 +3,7 @@ module mac_row (clk, out_s, in_w, in_n, valid, inst_w, reset, mode, tile_row_out
   parameter bw = 4;
   parameter psum_bw = 16;
   parameter col = 8;
+  parameter mac_ops = 27;
 
   input  clk; 
   input  reset;
@@ -28,7 +29,7 @@ module mac_row (clk, out_s, in_w, in_n, valid, inst_w, reset, mode, tile_row_out
   genvar i;
   generate
     for (i=0; i < col; i=i+1) begin : col_num
-      mac_tile #(.bw(bw), .psum_bw(psum_bw)) mac_tile_instance (
+      mac_tile #(.bw(bw), .psum_bw(psum_bw), .mac_ops(mac_ops)) mac_tile_instance (
         .clk(clk),
         .reset(reset),
         .in_w(temp[bw*i+:bw]),
@@ -37,12 +38,10 @@ module mac_row (clk, out_s, in_w, in_n, valid, inst_w, reset, mode, tile_row_out
         .inst_e(temp_inst[2*(i+1)+:2]),
         .in_n(in_n[psum_bw*i+:psum_bw]),
         .out_s(mac_outs[psum_bw*i+:psum_bw]),
-        .tile_out(tile_outs[psum_bw*i+:psum_bw]),
-        .mode(mode)
+        .mode(mode),
+        .valid_out(valid_signals[i]),
+        .tile_out(tile_outs[psum_bw*i+:psum_bw])
       );
-
-      // Valid signal comes from instruction propagation
-      assign valid_signals[i] = temp_inst[2*(i+1)+1];
     end
   endgenerate
 

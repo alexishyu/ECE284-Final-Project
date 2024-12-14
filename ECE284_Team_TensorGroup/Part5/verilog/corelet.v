@@ -39,6 +39,12 @@ module corelet #(
     wire ififo_full;
     wire ififo_ready;
     wire ififo_valid;
+    reg [3:0] row_counter;  // Track which row we're outputting (0-7)
+    reg [1:0] output_state; // 00: idle, 01: row valid, 10: row complete
+    reg row_valid;          // Indicates current row data is valid
+    wire [psum_bw*col-1:0] ofifo_in;
+    wire [bw-1:0] mac_out_weight;  // If needed for the design
+    reg [psum_bw*col-1:0] selected_row;
 
     assign in_n = mode ? data_out_ififo : {(psum_bw*col){1'b0}};
     assign mac_array_in_w = data_out_l0;
@@ -68,15 +74,59 @@ module corelet #(
 		.o_valid(ififo_valid)
 	);
 
-	assign mac_array_in_w = data_out_l0;
+
+	always @(posedge clk) begin
+		if (reset) begin
+			row_counter <= 0;
+			output_state <= 2'b00;
+			row_valid <= 0;
+		end
+		else if (mode) begin  // OS mode output control
+			case (output_state)
+				2'b00: begin  // Idle
+					if (mac_out_valid) begin  // Any valid signals indicates computation done
+						output_state <= 2'b01;
+						row_valid <= 1;
+					end
+				end
+				
+				2'b01: begin  // Row valid
+					if (ofifo_ready && !ofifo_full) begin  // OFIFO can accept data
+						row_valid <= 0;
+						output_state <= 2'b10;
+					end
+				end
+				
+				2'b10: begin  // Row complete
+					if (row_counter == row-1) begin  // All rows processed
+						row_counter <= 0;
+						output_state <= 2'b00;
+					end
+					else begin
+						row_counter <= row_counter + 1;
+						output_state <= 2'b01;
+						row_valid <= 1;
+					end
+				end
+			endcase
+		end
+	end
+
+	always @(*) begin
+		selected_row = tile_array_out[psum_bw*col*(row_counter+1)-1 -: psum_bw*col];
+	end
+
+	assign ofifo_in = mode ? selected_row : mac_out_psum;
+
+	assign ofifo_wr = mode ? row_valid : mac_out_valid;
 
 	ofifo #(.col(col), .bw(psum_bw)) ofifo_inst (
 		.clk(clk),
 		.reset(reset),
-		.in(mode ? tile_array_out[psum_bw*col-1:0] : mac_out_psum),
+		.in(ofifo_in),
 		.out(psum_out),
 		.rd(ofifo_rd),
-		.wr(mac_out_valid),
+		.wr({7'b0, ofifo_wr}),
 		.o_full(ofifo_full),
 		.o_ready(ofifo_ready),
 		.o_valid(ofifo_valid)
@@ -95,7 +145,7 @@ module corelet #(
 		.tile_array_out(tile_array_out)
 	);
 
-	assign mac_out = mode ? {{(psum_bw-bw){1'b0}}, mac_out_weight} : mac_out_psum;
+	assign mac_out = mode ? {{(psum_bw-bw){mac_out_weight[bw-1]}}, mac_out_weight} : mac_out_psum;
 
 	genvar i;
 	generate
@@ -112,6 +162,8 @@ module corelet #(
 			);
 		end
 	endgenerate
+
+	assign data_out = psum_out;  // Connect OFIFO output to top-level data_out
 
 endmodule
 

@@ -332,12 +332,16 @@ initial begin
 
     error = 0;
 
-
+    // Wait for execute signal and initial computation
+    for (t=0; t<500; t=t+1) begin  // Wait for first computation to complete
+        #0.5 clk = 1'b0;  
+        #0.5 clk = 1'b1;  
+    end
 
     $display("############ Verification Start for OS mode #############"); 
 
     for (i=0; i<8; i=i+1) begin  // Check each row output
-        if (i>0) begin  // Skip first row since it's initialization
+        if (i>-1) begin  // Skip first row since it's initialization
             out_scan_file = $fscanf(out_file,"%128b", answer); // Read 128 bits per row
             if (tile_psum_array[i*128 +: 128] == answer)  // Compare corresponding row
                 $display("%2d-th output tile Data matched! :D", i); 
