@@ -75,7 +75,7 @@ always @(posedge clk) begin
                 if(inst_w[1]=='b1) begin
                     a_q <= in_w;
                     b_q <= in_n[bw-1:0];
-                    c_q <= (a_q == 0 || b_q == 0) ? c_q : mac_out;
+                    c_q <= mac_out;
                     
                     // Track MAC operations
                     if(!mac_done) begin
@@ -99,6 +99,7 @@ mac #(.bw(bw), .psum_bw(psum_bw)) mac_instance (
     .a(a_q),
     .b(b_q),
     .c(c_q),
+    .clk(clk),
     .out(mac_out)
 );
 
